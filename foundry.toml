@@ -15,9 +15,12 @@ optimizer_runs = 1_000
 fuzz_runs = 1_000
 # Configure remappings
 remappings = [
-  "@std=lib/forge-std/src/",
   "@solmate=lib/solmate/src/",
+  "@std=lib/forge-std/src/",
+  "@ds-test=lib/forge-std/lib/ds-test/src/",
+  "@openzeppelin=lib/openzeppelin-contracts/contracts"
 ]
+test = 'test'
 
 # Extreme Fuzzing CI Profile :P
 [ci]
