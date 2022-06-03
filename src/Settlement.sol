@@ -24,16 +24,6 @@ contract Settlement is EIP712 {
         bytes32 s;
     }
 
-    struct OfferData {
-        uint256 bidId;
-        address trader;
-        address token;
-        uint256 amount;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
             "OpynRfq(uint256 bidId,address trader,address token,uint256 amount,uint256 nonce)"
