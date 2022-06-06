@@ -52,15 +52,18 @@ contract SettlementTest is Test {
         uint256 usdcAmountToBid = 1000e6;
         uint256 bidId = 1;
         
+        // bidder signature vars
         uint8 bidV; 
         bytes32 bidR;
         bytes32 bidS;
 
+        // seller signature vars
         uint8 sellerV;
         bytes32 sellerR;
         bytes32 sellerS;
 
         {
+            // bidder signing bid
             SigUtils.OpynRfq memory bigSign = SigUtils.OpynRfq({
                 bidId: bidId,
                 trader: bidder,
@@ -71,6 +74,7 @@ contract SettlementTest is Test {
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (bidV, bidR, bidS) = vm.sign(bidderPrivateKey, bidDigest);
 
+            // seller signing 
             SigUtils.OpynRfq memory sellerRfq = SigUtils.OpynRfq({
                 bidId: bidId,
                 trader: seller,
@@ -82,6 +86,7 @@ contract SettlementTest is Test {
             (sellerV, sellerR, sellerS) = vm.sign(sellerPrivateKey, offerDigest);
         }
 
+        // constrcuting settleRfq() args
         Settlement.OrderData memory bidOrder = Settlement.OrderData({
             bidId: bidId,
             trader: bidder,
@@ -104,6 +109,7 @@ contract SettlementTest is Test {
         assertEq(usdc.balanceOf(seller), 0);
         assertEq(squeeth.balanceOf(bidder), 0);
 
+        // seller send settlement tx
         vm.prank(seller);
         settlement.settleRfq(offerOrder, bidOrder);
 
