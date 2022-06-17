@@ -7,7 +7,7 @@ read -s rpc
 
 if [ -z "$rpc" ]
 then
-  forge create Settlement -i --rpc-url http://localhost:8545/ --constructor-args "1"
+  ETHERSCAN_API_KEY=PSW8C433Q667DVEX5BCRMGNAH9FSGFZ7Q8 forge create Settlement -i --rpc-url https://ropsten.infura.io/v3/9a1eacc6b18f436dab839c1713616fd1 --constructor-args "1" --verify
 else
-  forge create Settlement -i --rpc-url $rpc --constructor-args "1"
+  forge create Settlement -i --rpc-url $rpc --constructor-args "1" --verify
 fi
