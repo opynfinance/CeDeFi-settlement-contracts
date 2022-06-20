@@ -12,5 +12,5 @@ if [ -z "$rpc" ]
 then
   forge create Settlement -i --rpc-url http://localhost:8545 --constructor-args "1" --verify
 else
-  ETHERSCAN_API_KEY=etherscanKey forge create Settlement -i --rpc-url $rpc --constructor-args "1" --verify
+  ETHERSCAN_API_KEY=$etherscanKey forge create Settlement -i --rpc-url $rpc --constructor-args "1" --verify
 fi
