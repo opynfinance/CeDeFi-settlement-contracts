@@ -17,9 +17,10 @@ contract SettlementTest is Test {
 
     uint256 internal sellerPrivateKey;
     uint256 internal bidderPrivateKey;
-
+    uint256 internal signerPrivateKey;
     address internal seller;
     address internal bidder;
+    address internal signer;
 
     function setUp() public {
         usdc = new MockERC20("USDC", "USDC", 6);
@@ -29,8 +30,10 @@ contract SettlementTest is Test {
 
         sellerPrivateKey = 0xA11CE;
         bidderPrivateKey = 0xB0B;
+        signerPrivateKey = 0x1337;
         seller = vm.addr(sellerPrivateKey);
         bidder = vm.addr(bidderPrivateKey);
+        signer = vm.addr(signerPrivateKey);
 
         usdc.mint(bidder, 100000e6);
         squeeth.mint(seller, 10e18);
@@ -209,6 +212,116 @@ contract SettlementTest is Test {
         vm.stopPrank();
     }
 
+    function testRevertSettleOfferWithUnauthorizedSigner() public {
+        uint256 offerId = _createOffer(seller, address(squeeth), address(usdc), uint128(1000e6), uint128(1e18), 10e18);
+        
+        // bidder signature vars
+        uint8 v; 
+        bytes32 r;
+        bytes32 s;
+
+        {
+            // bidder signing bid
+            SigUtils.OpynRfq memory bigSign = SigUtils.OpynRfq({
+                offerId: settlement.offersCounter(),
+                bidId: 1,
+                signerAddress: signer,
+                bidderAddress: bidder,
+                bidToken: address(usdc),
+                offerToken: address(squeeth),
+                bidAmount: 10e18,
+                sellAmount: 10000e6,
+                nonce: settlement.nonces(bidder)
+            });
+            bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
+            (v, r, s) = vm.sign(signerPrivateKey, bidDigest);
+        }
+
+        // constrcuting settleRfq() args
+        Settlement.BidData memory bidData = Settlement.BidData({
+            offerId: settlement.offersCounter(),
+            bidId: 1,
+            signerAddress: signer,
+            bidderAddress: bidder,
+            bidToken: address(usdc),
+            offerToken: address(squeeth),
+            bidAmount: 10e18,
+            sellAmount: 10000e6,
+            v: v,
+            r: r,
+            s: s
+        });
+
+        assertEq(usdc.balanceOf(seller), 0);
+        assertEq(squeeth.balanceOf(bidder), 0);
+
+        // seller send settlement tx
+        vm.startPrank(seller);
+        vm.expectRevert("Invalid signer for bidder address");
+        settlement.settleOffer(offerId, bidData);
+        vm.stopPrank();
+    }
+
+    function testDelegateToSigner() public {
+        _delegateToSigner(bidder, signer);
+
+        address bidderDelegator = settlement.bidderDelegator(bidder);
+        assertEq(bidderDelegator, signer);
+    }
+
+    function testSettleOfferWithSigner() public {
+        _delegateToSigner(bidder, signer);
+        uint256 offerId = _createOffer(seller, address(squeeth), address(usdc), uint128(1000e6), uint128(1e18), 10e18);
+        
+        // bidder signature vars
+        uint8 v; 
+        bytes32 r;
+        bytes32 s;
+
+        {
+            // bidder signing bid
+            SigUtils.OpynRfq memory bigSign = SigUtils.OpynRfq({
+                offerId: settlement.offersCounter(),
+                bidId: 1,
+                signerAddress: signer,
+                bidderAddress: bidder,
+                bidToken: address(usdc),
+                offerToken: address(squeeth),
+                bidAmount: 10e18,
+                sellAmount: 10000e6,
+                nonce: settlement.nonces(bidder)
+            });
+            bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
+            (v, r, s) = vm.sign(signerPrivateKey, bidDigest);
+        }
+
+        // constrcuting settleRfq() args
+        Settlement.BidData memory bidData = Settlement.BidData({
+            offerId: settlement.offersCounter(),
+            bidId: 1,
+            signerAddress: signer,
+            bidderAddress: bidder,
+            bidToken: address(usdc),
+            offerToken: address(squeeth),
+            bidAmount: 10e18,
+            sellAmount: 10000e6,
+            v: v,
+            r: r,
+            s: s
+        });
+
+        assertEq(usdc.balanceOf(seller), 0);
+        assertEq(squeeth.balanceOf(bidder), 0);
+
+        // seller send settlement tx
+        vm.startPrank(seller);
+        settlement.settleOffer(offerId, bidData);
+        vm.stopPrank();
+
+        assertEq(usdc.balanceOf(seller), 10000e6);
+        assertEq(squeeth.balanceOf(bidder), 10e18);
+    }
+
     function _createOffer(    
         address _seller,
         address _offerToken,
@@ -222,5 +335,10 @@ contract SettlementTest is Test {
         vm.stopPrank();
 
         return offerId;
+    }
+
+    function _delegateToSigner(address _bidder, address _signer) internal {
+        vm.prank(_bidder);
+        settlement.delegateToSigner(_signer);
     }
 }

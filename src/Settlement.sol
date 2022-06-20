@@ -57,9 +57,19 @@ contract Settlement is EIP712 {
         uint128 minBidSize,
         uint256 totalSize
     );
+    event DelegateToSigner(address indexed bidder, address indexed newSigner);
+    event SettleOffer(uint256 indexed offerId, uint256 bidId, address offerToken, address bidToken, address indexed seller, address indexed bidder, uint256 bidAmount, uint256 sellAmount);
 
     constructor(string memory _version) EIP712("OPYN RFQ", _version) {}
 
+    /**
+     * @notice create new onchain offer
+     * @param _offerToken token address to sell
+     * @param _bidToken token address to bid with
+     * @param _minPrice min price of token to sell denominated in token to buy unit
+     * @param _minBidSize min bid size
+     * @param _totalSize total offer size
+     */
     function createOffer(
         address _offerToken,
         address _bidToken,
@@ -92,12 +102,23 @@ contract Settlement is EIP712 {
         return offerId;
     }
 
+    /**
+     * @notice delegate signing bid to another address
+     * @param _signer new signer address
+     */
     function delegateToSigner(address _signer) external {
         require(_signer != address(0), "Invalid signer address");
 
         bidderDelegator[msg.sender] = _signer;
+
+        emit DelegateToSigner(msg.sender, _signer);
     }
 
+    /**
+     * @notice settlet offer
+     * @param _offerId offer ID
+     * @param _bidData BidData struct
+     */
     function settleOffer(uint256 _offerId, BidData calldata _bidData) external {
         require(
             _offers[_offerId].seller == msg.sender,
@@ -154,12 +175,24 @@ contract Settlement is EIP712 {
             msg.sender,
             _bidData.sellAmount
         );
+
+        emit SettleOffer(_offerId, _bidData.bidId, _bidData.offerToken, _bidData.bidToken, msg.sender, _bidData.bidderAddress, _bidData.bidAmount, _bidData.sellAmount);
     }
 
-    function nonces(address owner) external view returns (uint256) {
-        return _nonces[owner].current();
+    /**
+     * @notice get nonce for specific address
+     * @param _owner address
+     * @return nonce 
+     */
+    function nonces(address _owner) external view returns (uint256) {
+        return _nonces[_owner].current();
     }
 
+    /**
+     * @notice get offer details
+     * @param _offerId offer ID
+     * @return offer seller, token to sell, token to bid with, min price and min bid size
+     */
     function getOfferDetails(uint256 _offerId)
         external
         view
@@ -187,8 +220,8 @@ contract Settlement is EIP712 {
         return _domainSeparatorV4();
     }
 
-    function _useNonce(address owner) internal returns (uint256 current) {
-        Counters.Counter storage nonce = _nonces[owner];
+    function _useNonce(address _owner) internal returns (uint256 current) {
+        Counters.Counter storage nonce = _nonces[_owner];
         current = nonce.current();
         nonce.increment();
     }
