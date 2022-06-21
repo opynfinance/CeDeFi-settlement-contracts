@@ -8,13 +8,20 @@ contract SigUtils {
         DOMAIN_SEPARATOR = _DOMAIN_SEPARATOR;
     }
 
-    bytes32 public constant OPYN_RFQ_TYPEHASH = keccak256("OpynRfq(uint256 bidId,address trader,address token,uint256 amount,uint256 nonce)");
+    bytes32 public constant OPYN_RFQ_TYPEHASH =
+        keccak256(
+            "OpynRfq(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount, uint256 nonce)"
+        );
 
     struct OpynRfq {
+        uint256 offerId;
         uint256 bidId;
-        address trader;
-        address token;
-        uint256 amount;
+        address signerAddress;
+        address bidderAddress;
+        address bidToken;
+        address offerToken;
+        uint256 bidAmount;
+        uint256 sellAmount;
         uint256 nonce;
     }
 
@@ -28,10 +35,14 @@ contract SigUtils {
             keccak256(
                 abi.encode(
                     OPYN_RFQ_TYPEHASH,
+                    _rfq.offerId,
                     _rfq.bidId,
-                    _rfq.trader,
-                    _rfq.token,
-                    _rfq.amount,
+                    _rfq.signerAddress,
+                    _rfq.bidderAddress,
+                    _rfq.bidToken,
+                    _rfq.offerToken,
+                    _rfq.bidAmount,
+                    _rfq.sellAmount,
                     _rfq.nonce
                 )
             );
