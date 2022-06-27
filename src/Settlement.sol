@@ -2,7 +2,8 @@
 pragma solidity 0.8.13;
 
 // interface
-import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
+// import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
 // contract
 import {EIP712} from "@openzeppelin/utils/cryptography/draft-EIP712.sol";
 // lib
@@ -14,6 +15,7 @@ import {ECDSA} from "@openzeppelin/utils/cryptography/ECDSA.sol";
 contract Settlement is EIP712 {
     using Counters for Counters.Counter;
 
+    uint256 internal constant MAX_ERROR_COUNT = 9;
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
             "OpynRfq(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount, uint256 nonce)"
@@ -46,6 +48,7 @@ contract Settlement is EIP712 {
         uint128 minPrice; // price of 1 offerToken demnominated in bidToken
         uint128 minBidSize; // min bid size
         uint256 totalSize; // offer total size
+        uint256 offerTokenDecimals; // decimals of offer token
     }
 
     event CreateOffer(
@@ -88,6 +91,7 @@ contract Settlement is EIP712 {
         _offers[offerId].minPrice = _minPrice;
         _offers[offerId].minBidSize = _minBidSize;
         _offers[offerId].totalSize = _totalSize;
+        _offers[offerId].offerTokenDecimals = IERC20(_offerToken).decimals();
 
         emit CreateOffer(
             offerId,
@@ -157,7 +161,7 @@ contract Settlement is EIP712 {
             )
         );
         bytes32 hash = _hashTypedDataV4(structHash);
-        address bidSigner = ECDSA.recover(
+        address bidSigner =  ECDSA.recover(
             hash,
             _bidData.v,
             _bidData.r,
@@ -177,6 +181,83 @@ contract Settlement is EIP712 {
         );
 
         emit SettleOffer(_offerId, _bidData.bidId, _bidData.offerToken, _bidData.bidToken, msg.sender, _bidData.bidderAddress, _bidData.bidAmount, _bidData.sellAmount);
+    }
+
+    /**
+     * @notice check bid errors
+     * @param _bidData BidData struct
+     * @return Number of errors found and array of error messages
+     */
+    function checkBid(BidData calldata _bidData) external view returns (uint256, bytes32[] memory) {
+        OfferData memory offer = _offers[_bidData.offerId];
+
+        require(offer.seller != address(0), "Offer does not exist");
+
+        uint256 errCount;
+        bytes32[] memory errors = new bytes32[](MAX_ERROR_COUNT);
+
+        // Check signature
+        address signerAddress = _getSigner(_bidData);
+
+        if (signerAddress != _bidData.signerAddress) {
+            errors[errCount] = "SIGNATURE_MISMATCHED";
+            errCount++;
+        }
+        // Check signer is either bidder or bidder's delegator
+        if (_bidData.bidderAddress != _bidData.signerAddress) {
+            // check that signer was delegated by bidder to sign
+            if (bidderDelegator[_bidData.bidderAddress] != _bidData.signerAddress) {
+                errors[errCount] = "INVALID_SIGNER_FOR_BIDDER";
+                errCount++;
+            }
+        }
+        // Check bid size
+        if (_bidData.bidAmount < offer.minBidSize) {
+            errors[errCount] = "BID_TOO_SMALL";
+            errCount++;
+        }
+        if (_bidData.bidAmount > offer.totalSize) {
+            errors[errCount] = "BID_EXCEED_TOTAL_SIZE";
+            errCount++;
+        }
+        // Check bid price
+        uint256 bidPrice = (_bidData.sellAmount * 10**offer.offerTokenDecimals) / _bidData.bidAmount;
+        if (bidPrice < offer.minPrice) {
+            errors[errCount] = "PRICE_TOO_LOW";
+            errCount++;
+        }
+        // Check signer allowance
+        uint256 signerAllowance =
+            IERC20(offer.bidToken).allowance(
+                _bidData.bidderAddress,
+                address(this)
+            );
+        if (signerAllowance < _bidData.sellAmount) {
+            errors[errCount] = "BIDDER_ALLOWANCE_LOW";
+            errCount++;
+        }
+        // Check signer balance
+        uint256 signerBalance =
+            IERC20(offer.bidToken).balanceOf(_bidData.bidderAddress);
+        if (signerBalance < _bidData.sellAmount) {
+            errors[errCount] = "BIDDER_BALANCE_LOW";
+            errCount++;
+        }
+        // Check seller allowance
+        uint256 sellerAllowance =
+            IERC20(offer.offerToken).allowance(offer.seller, address(this));
+        if (sellerAllowance < _bidData.bidAmount) {
+            errors[errCount] = "SELLER_ALLOWANCE_LOW";
+            errCount++;
+        }
+        // Check seller balance
+        uint256 sellerBalance = IERC20(offer.offerToken).balanceOf(offer.seller);
+        if (sellerBalance < _bidData.bidAmount) {
+            errors[errCount] = "SELLER_BALANCE_LOW";
+            errCount++;
+        }
+
+        return (errCount, errors);
     }
 
     /**
@@ -224,5 +305,34 @@ contract Settlement is EIP712 {
         Counters.Counter storage nonce = _nonces[_owner];
         current = nonce.current();
         nonce.increment();
+    }
+
+    /**
+     * @notice view function to get big signer address
+     * @param _bidData BidData struct
+     * @return signer address
+     */
+    function _getSigner(BidData calldata _bidData) internal view returns (address) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                _OPYN_RFQ_TYPEHASH,
+                _bidData.offerId,
+                _bidData.bidId,
+                _bidData.signerAddress,
+                _bidData.bidderAddress,
+                _bidData.bidToken,
+                _bidData.offerToken,
+                _bidData.bidAmount,
+                _bidData.sellAmount,
+                _nonces[_bidData.signerAddress].current()
+            )
+        );
+        bytes32 hash = _hashTypedDataV4(structHash);
+        return ECDSA.recover(
+            hash,
+            _bidData.v,
+            _bidData.r,
+            _bidData.s
+        );
     }
 }
