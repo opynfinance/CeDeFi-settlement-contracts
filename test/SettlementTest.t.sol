@@ -322,6 +322,51 @@ contract SettlementTest is Test {
         assertEq(squeeth.balanceOf(bidder), 10e18);
     }
 
+    function testCheckBid() public {
+        uint256 offerId = _createOffer(seller, address(squeeth), address(usdc), uint128(1000e6), uint128(1e18), 10e18);
+
+        // bidder signature vars
+        uint8 v; 
+        bytes32 r;
+        bytes32 s;
+
+        {
+            // bidder signing bid
+            SigUtils.OpynRfq memory bigSign = SigUtils.OpynRfq({
+                offerId: settlement.offersCounter(),
+                bidId: 1,
+                signerAddress: bidder,
+                bidderAddress: bidder,
+                bidToken: address(usdc),
+                offerToken: address(squeeth),
+                bidAmount: 10e18,
+                sellAmount: 10000e6,
+                nonce: settlement.nonces(bidder)
+            });
+            bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
+            (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
+        }
+
+        Settlement.BidData memory bidData = Settlement.BidData({
+            offerId: settlement.offersCounter(),
+            bidId: 1,
+            signerAddress: bidder,
+            bidderAddress: bidder,
+            bidToken: address(usdc),
+            offerToken: address(squeeth),
+            bidAmount: 10e18,
+            sellAmount: 10000e6,
+            v: v,
+            r: r,
+            s: s
+        });
+
+        (uint256 errorsNumber, bytes32[] memory errors) = settlement.checkBid(bidData);
+        console.logUint(errorsNumber);
+        assertEq(errorsNumber, 0);
+
+    }
+
     function _createOffer(    
         address _seller,
         address _offerToken,
