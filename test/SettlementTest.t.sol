@@ -85,6 +85,8 @@ contract SettlementTest is Test {
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
+
+            console.logUint(v);
         }
 
         // constrcuting settleRfq() args
@@ -333,7 +335,7 @@ contract SettlementTest is Test {
         {
             // bidder signing bid
             SigUtils.OpynRfq memory bigSign = SigUtils.OpynRfq({
-                offerId: settlement.offersCounter(),
+                offerId: offerId,
                 bidId: 1,
                 signerAddress: bidder,
                 bidderAddress: bidder,
@@ -348,7 +350,7 @@ contract SettlementTest is Test {
         }
 
         Settlement.BidData memory bidData = Settlement.BidData({
-            offerId: settlement.offersCounter(),
+            offerId: offerId,
             bidId: 1,
             signerAddress: bidder,
             bidderAddress: bidder,
@@ -361,7 +363,7 @@ contract SettlementTest is Test {
             s: s
         });
 
-        (uint256 errorsNumber, bytes32[] memory errors) = settlement.checkBid(bidData);
+        (uint256 errorsNumber,) = settlement.checkBid(bidData);
         console.logUint(errorsNumber);
         assertEq(errorsNumber, 0);
 

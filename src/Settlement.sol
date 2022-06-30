@@ -14,7 +14,7 @@ import {ECDSA} from "@openzeppelin/utils/cryptography/ECDSA.sol";
 contract Settlement is EIP712 {
     using Counters for Counters.Counter;
 
-    uint256 internal constant MAX_ERROR_COUNT = 9;
+    uint256 internal constant MAX_ERROR_COUNT = 7;
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
             "OpynRfq(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount, uint256 nonce)"
@@ -235,13 +235,6 @@ contract Settlement is EIP712 {
             errors[errCount] = "BIDDER_ALLOWANCE_LOW";
             errCount++;
         }
-        // Check signer balance
-        uint256 signerBalance =
-            IERC20(offer.bidToken).balanceOf(_bidData.bidderAddress);
-        if (signerBalance < _bidData.sellAmount) {
-            errors[errCount] = "BIDDER_BALANCE_LOW";
-            errCount++;
-        }
         // Check seller allowance
         uint256 sellerAllowance =
             IERC20(offer.offerToken).allowance(offer.seller, address(this));
@@ -249,14 +242,17 @@ contract Settlement is EIP712 {
             errors[errCount] = "SELLER_ALLOWANCE_LOW";
             errCount++;
         }
-        // Check seller balance
-        uint256 sellerBalance = IERC20(offer.offerToken).balanceOf(offer.seller);
-        if (sellerBalance < _bidData.bidAmount) {
-            errors[errCount] = "SELLER_BALANCE_LOW";
-            errCount++;
-        }
 
         return (errCount, errors);
+    }
+
+    /**
+     * @notice return signer address of a BidData struct
+     * @param _bidData BidData struct
+     * @return bid signer address
+     */
+    function getBidSigner(BidData calldata _bidData) external view returns (address) {
+        return _getSigner(_bidData);
     }
 
     /**
