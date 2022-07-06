@@ -23,7 +23,10 @@ build  :; forge build
 scripts :; chmod +x ./scripts/*
 
 # Tests
-test :; forge clean && forge test --optimize --optimizer-runs 1000000 -v # --ffi # enable if you need the `ffi` cheat code on HEVM
+test :; forge clean && forge test --no-match-contract SettlementTestFork --optimize --optimizer-runs 1000000 -v # --ffi # enable if you need the `ffi` cheat code on HEVM
+
+# E2E
+e2e-test :; forge clean && forge test --fork-url ROPSTEN_FORK_URL --match-contract SettlementTestFork --optimize --optimizer-runs 1000000 -v --ffi # enable if you need the `ffi` cheat code on HEVM
 
 # Lints
 lint :; prettier --write src/**/*.sol && prettier --write src/*.sol
