@@ -31,7 +31,7 @@ contract SettlementTestFork is Test {
 
         usdc = MockERC20(0x27415c30d8c87437BeCbd4f98474f26E712047f4);
         squeeth = MockERC20(0xa4222f78d23593e82Aa74742d25D06720DCa4ab7);
-        settlement = Settlement(0x635f8703b4E00357C5a323424423e001c07b8f65);
+        settlement = Settlement(0xe2614be428D6B835110231028Ae70279f2e7ec17);
         sigUtils = new SigUtils(settlement.DOMAIN_SEPARATOR());
 
         sellerPrivateKey = vm.envUint("E2E_SELLER_PK");
@@ -66,19 +66,17 @@ contract SettlementTestFork is Test {
     }
 
     function testGetBidSigner() public {        
-        // uint256 offerId = _createOffer(seller, address(squeeth), address(usdc), uint128(1000e6), uint128(1e18), 10e18);
+        uint256 offerId = _createOffer(seller, address(squeeth), address(usdc), uint128(1000e6), uint128(1e18), 10e18);
 
         // bidder signature vars
         uint8 v; 
         bytes32 r;
         bytes32 s;
 
-        console.logUint(settlement.nonces(bidder));
-
         {
             // bidder signing bid
             SigUtils.OpynRfq memory bigSign = SigUtils.OpynRfq({
-                offerId: 1,
+                offerId: offerId,
                 bidId: 1,
                 signerAddress: bidder,
                 bidderAddress: bidder,
@@ -86,14 +84,14 @@ contract SettlementTestFork is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 0
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
         }
 
         Settlement.BidData memory bidData = Settlement.BidData({
-            offerId: 1,
+            offerId: offerId,
             bidId: 1,
             signerAddress: bidder,
             bidderAddress: bidder,
@@ -101,14 +99,11 @@ contract SettlementTestFork is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 10e6,
+            nonce: 0,
             v: v,
             r: r,
             s: s
         });
-
-        console.logUint(v);
-        console.logBytes32(r);
-        console.logBytes32(s);
 
         address signerAddr = settlement.getBidSigner(bidData);
         assertEq(signerAddr, bidder);

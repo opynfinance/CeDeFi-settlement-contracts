@@ -81,7 +81,7 @@ contract SettlementTest is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10000e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 0
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
@@ -99,6 +99,7 @@ contract SettlementTest is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 10000e6,
+            nonce: 0,
             v: v,
             r: r,
             s: s
@@ -112,7 +113,7 @@ contract SettlementTest is Test {
         settlement.settleOffer(offerId, bidData);
         vm.stopPrank();
 
-        assertEq(settlement.nonces(bidder), 1);
+        assertEq(settlement.isInvalidNonce(bidder, 0), true);
         assertEq(usdc.balanceOf(seller), 10000e6);
         assertEq(squeeth.balanceOf(bidder), 10e18);
     }
@@ -136,7 +137,7 @@ contract SettlementTest is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10000e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 1
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
@@ -152,11 +153,13 @@ contract SettlementTest is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 200000e6,
+            nonce: 1,
             v: v,
             r: r,
             s: s
         });
         
+        assertEq(settlement.isInvalidNonce(bidder, 1), false);
         vm.startPrank(seller);
         vm.expectRevert("Invalid bid signature");
         settlement.settleOffer(offerId, bidData);
@@ -182,7 +185,7 @@ contract SettlementTest is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10000e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 1
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
@@ -198,18 +201,20 @@ contract SettlementTest is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 10000e6,
+            nonce: 1,
             v: v,
             r: r,
             s: s
         });
 
+        assertEq(settlement.isInvalidNonce(bidder, 1), false);
         assertEq(usdc.balanceOf(seller), 0);
         assertEq(squeeth.balanceOf(bidder), 0);
 
         // seller send settlement tx
         vm.startPrank(seller);
         settlement.settleOffer(offerId, bidData);
-        vm.expectRevert("Invalid bid signature");
+        vm.expectRevert("Nonce already invalid");
         settlement.settleOffer(offerId, bidData);
         vm.stopPrank();
     }
@@ -233,7 +238,7 @@ contract SettlementTest is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10000e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 0
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(signerPrivateKey, bidDigest);
@@ -249,11 +254,13 @@ contract SettlementTest is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 10000e6,
+            nonce: 0,
             v: v,
             r: r,
             s: s
         });
 
+        assertEq(settlement.isInvalidNonce(signer, 0), false);
         assertEq(usdc.balanceOf(seller), 0);
         assertEq(squeeth.balanceOf(bidder), 0);
 
@@ -291,7 +298,7 @@ contract SettlementTest is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10000e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 0
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(signerPrivateKey, bidDigest);
@@ -307,10 +314,12 @@ contract SettlementTest is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 10000e6,
+            nonce: 0,
             v: v,
             r: r,
             s: s
         });
+
 
         assertEq(usdc.balanceOf(seller), 0);
         assertEq(squeeth.balanceOf(bidder), 0);
@@ -343,7 +352,7 @@ contract SettlementTest is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10000e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 2
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
@@ -358,6 +367,7 @@ contract SettlementTest is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 10000e6,
+            nonce: 2,
             v: v,
             r: r,
             s: s
@@ -388,7 +398,7 @@ contract SettlementTest is Test {
                 offerToken: address(squeeth),
                 bidAmount: 10e18,
                 sellAmount: 10000e6,
-                nonce: settlement.nonces(bidder)
+                nonce: 2
             });
             bytes32 bidDigest = sigUtils.getTypedDataHash(bigSign);
             (v, r, s) = vm.sign(bidderPrivateKey, bidDigest);
@@ -403,6 +413,7 @@ contract SettlementTest is Test {
             offerToken: address(squeeth),
             bidAmount: 10e18,
             sellAmount: 10000e6,
+            nonce: 2,
             v: v,
             r: r,
             s: s
