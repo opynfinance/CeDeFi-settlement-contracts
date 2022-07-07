@@ -14,7 +14,7 @@ import {ECDSA} from "@openzeppelin/utils/cryptography/ECDSA.sol";
 contract Settlement is EIP712 {
     using Counters for Counters.Counter;
 
-    uint256 internal constant MAX_ERROR_COUNT = 7;
+    uint256 internal constant MAX_ERROR_COUNT = 8;
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
             "RFQ(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount,uint256 nonce)"
@@ -24,7 +24,7 @@ contract Settlement is EIP712 {
 
     mapping(address => address) public bidderDelegator; // mapping between bidder address and delegator that can sign bid in place of bidder
     mapping(uint256 => OfferData) public _offers;
-    mapping(address => Counters.Counter) private _nonces;
+    mapping(address => mapping(uint256 => bool)) private _nonces;   // (signer => nonce => invalid)
 
     struct BidData {
         uint256 offerId; // the ID of offer this bid relate to
@@ -35,6 +35,7 @@ contract Settlement is EIP712 {
         address offerToken; // offer token address
         uint256 bidAmount; // bid amount to buy from offer
         uint256 sellAmount; // amount to sell of bidToken
+        uint256 nonce;  // nonce used for this bid
         uint8 v; // v
         bytes32 r; // r
         bytes32 s; // s
@@ -156,7 +157,7 @@ contract Settlement is EIP712 {
                 _bidData.offerToken,
                 _bidData.bidAmount,
                 _bidData.sellAmount,
-                _useNonce(_bidData.signerAddress)
+                _markNonceAsInvalid(_bidData.signerAddress, _bidData.nonce)
             )
         );
         bytes32 hash = _hashTypedDataV4(structHash);
@@ -183,6 +184,14 @@ contract Settlement is EIP712 {
     }
 
     /**
+     * @notice cancel a submitted bid by marking nonce as invalid
+     * @param _nonce nonce used to sign the bid
+     */
+    function cancelBidByNonce(uint256 _nonce) external {
+        _markNonceAsInvalid(msg.sender, _nonce);
+    }
+
+    /**
      * @notice check bid errors
      * @param _bidData BidData struct
      * @return Number of errors found and array of error messages
@@ -200,6 +209,11 @@ contract Settlement is EIP712 {
 
         if (signerAddress != _bidData.signerAddress) {
             errors[errCount] = "SIGNATURE_MISMATCHED";
+            errCount++;
+        }
+        // check if nonce is valid
+        if (_isInvalidNonce(_bidData.signerAddress, _bidData. nonce)) {
+            errors[errCount] = "INVALID_NONCE";
             errCount++;
         }
         // Check signer is either bidder or bidder's delegator
@@ -256,12 +270,13 @@ contract Settlement is EIP712 {
     }
 
     /**
-     * @notice get nonce for specific address
-     * @param _owner address
-     * @return nonce 
+     * @notice check if nonce is invalid
+     * @param _signer bid signer address
+     * @param _nonce nonce used 
+     * @return true if nonce is invalid, else false
      */
-    function nonces(address _owner) external view returns (uint256) {
-        return _nonces[_owner].current();
+    function isInvalidNonce(address _signer, uint256 _nonce) external view returns (bool) {
+        return _isInvalidNonce(_signer, _nonce);
     }
 
     /**
@@ -296,10 +311,16 @@ contract Settlement is EIP712 {
         return _domainSeparatorV4();
     }
 
-    function _useNonce(address _owner) internal returns (uint256 current) {
-        Counters.Counter storage nonce = _nonces[_owner];
-        current = nonce.current();
-        nonce.increment();
+    /**
+     * @dev mark nonce as invalid so it can't be used twice
+     * @param _signer signer address
+     * @param _nonce nonce
+     */
+    function _markNonceAsInvalid(address _signer, uint256 _nonce) internal returns(uint256) {
+        require(!_nonces[_signer][_nonce], "Nonce already invalid");
+
+        _nonces[_signer][_nonce] = true;
+        return _nonce;
     }
 
     /**
@@ -319,7 +340,7 @@ contract Settlement is EIP712 {
                 _bidData.offerToken,
                 _bidData.bidAmount,
                 _bidData.sellAmount,
-                _nonces[_bidData.signerAddress].current()
+                _bidData.nonce
             )
         );
         bytes32 hash = _hashTypedDataV4(structHash);
@@ -330,4 +351,15 @@ contract Settlement is EIP712 {
             _bidData.s
         );
     }
+
+    /**
+     * @dev check if nonce is invalid
+     * @param _signer bid signer address
+     * @param _nonce nonce used 
+     * @return true if nonce is invalid, else false
+     */
+    function _isInvalidNonce(address _signer, uint256 _nonce) internal view returns (bool) {
+        return _nonces[_signer][_nonce];
+    }
+
 }
