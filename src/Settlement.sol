@@ -418,4 +418,19 @@ contract Settlement {
             _test.bidId
         );
     }
+
+    function getEncodePacked(TestData calldata _test) external view returns (bytes memory) {
+        return abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(
+                abi.encode(
+                    _TEST_TYPEHASH,
+                    _test.offerId,
+                    _test.bidId
+                )
+            )
+        );
+    }
+
 }
