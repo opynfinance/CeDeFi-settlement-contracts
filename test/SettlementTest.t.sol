@@ -25,7 +25,7 @@ contract SettlementTest is Test {
     function setUp() public {
         usdc = new MockERC20("USDC", "USDC", 6);
         squeeth = new MockERC20("SQUEETH", "oSQTH", 18);
-        settlement = new Settlement("1");
+        settlement = new Settlement();
         sigUtils = new SigUtils(settlement.DOMAIN_SEPARATOR());
 
         sellerPrivateKey = 0xA11CE;

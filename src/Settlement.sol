@@ -4,21 +4,43 @@ pragma solidity 0.8.13;
 // interface
 import {IERC20Metadata as IERC20} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
 // contract
-import {EIP712} from "@openzeppelin/utils/cryptography/draft-EIP712.sol";
+// import {EIP712} from "@openzeppelin/utils/cryptography/draft-EIP712.sol";
 // lib
 import {Counters} from "@openzeppelin/utils/Counters.sol";
 import {ECDSA} from "@openzeppelin/utils/cryptography/ECDSA.sol";
 
 /// @title Settlement
 /// @author Haythem Sellami
-contract Settlement is EIP712 {
+contract Settlement {
     using Counters for Counters.Counter;
 
     uint256 internal constant MAX_ERROR_COUNT = 7;
+    bytes32 public constant DOMAIN_NAME = keccak256("OPYN BRIDGE");
+    bytes32 public constant DOMAIN_VERSION = keccak256("1");
+    bytes32 public constant DOMAIN_TYPEHASH =
+        keccak256(
+            abi.encodePacked(
+                "EIP712Domain(",
+                "string name,",
+                "string version,",
+                "uint256 chainId,",
+                "address verifyingContract",
+                ")"
+            )
+        );
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
-            "RFQ(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount,uint256 nonce)"
+            abi.encodePacked(
+                "RFQ(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount,uint256 nonce)"
+            )
         );
+    bytes32 private constant _TEST_TYPEHASH =
+        keccak256(
+            abi.encodePacked(
+                "TEST(uint256 offerId, uint256 bidId)"
+            )
+        );
+    bytes32 public immutable DOMAIN_SEPARATOR;
 
     uint256 public offersCounter;
 
@@ -38,6 +60,14 @@ contract Settlement is EIP712 {
         uint8 v; // v
         bytes32 r; // r
         bytes32 s; // s
+    }
+
+    struct TestData {
+        uint256 offerId;
+        uint256 bidId;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     struct OfferData {
@@ -62,7 +92,17 @@ contract Settlement is EIP712 {
     event DelegateToSigner(address indexed bidder, address indexed newSigner);
     event SettleOffer(uint256 indexed offerId, uint256 bidId, address offerToken, address bidToken, address indexed seller, address indexed bidder, uint256 bidAmount, uint256 sellAmount);
 
-    constructor(string memory _version) EIP712("OPYN BRIDGE", _version) {}
+    constructor() {
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                DOMAIN_TYPEHASH,
+                DOMAIN_NAME,
+                DOMAIN_VERSION,
+                block.chainid,
+                address(this)
+            )
+        );
+    }
 
     /**
      * @notice create new onchain offer
@@ -143,29 +183,33 @@ contract Settlement is EIP712 {
                 "Invalid signer for bidder address"
             );
         }
-        
-        // verify big signature
-        bytes32 structHash = keccak256(
-            abi.encode(
-                _OPYN_RFQ_TYPEHASH,
-                _bidData.offerId,
-                _bidData.bidId,
-                _bidData.signerAddress,
-                _bidData.bidderAddress,
-                _bidData.bidToken,
-                _bidData.offerToken,
-                _bidData.bidAmount,
-                _bidData.sellAmount,
-                _useNonce(_bidData.signerAddress)
-            )
-        );
-        bytes32 hash = _hashTypedDataV4(structHash);
-        address bidSigner =  ECDSA.recover(
-            hash,
+
+        address bidSigner = ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR,
+                    keccak256(
+                        abi.encode(
+                            _OPYN_RFQ_TYPEHASH,
+                            _bidData.offerId,
+                            _bidData.bidId,
+                            _bidData.signerAddress,
+                            _bidData.bidderAddress,
+                            _bidData.bidToken,
+                            _bidData.offerToken,
+                            _bidData.bidAmount,
+                            _bidData.sellAmount,
+                            _useNonce(_bidData.signerAddress)
+                        )
+                    )
+                )
+            ),
             _bidData.v,
             _bidData.r,
             _bidData.s
         );
+
         require(bidSigner == _bidData.signerAddress, "Invalid bid signature");
 
         IERC20(_bidData.offerToken).transferFrom(
@@ -291,11 +335,6 @@ contract Settlement is EIP712 {
         );
     }
 
-    // solhint-disable-next-line func-name-mixedcase
-    function DOMAIN_SEPARATOR() external view returns (bytes32) {
-        return _domainSeparatorV4();
-    }
-
     function _useNonce(address _owner) internal returns (uint256 current) {
         Counters.Counter storage nonce = _nonces[_owner];
         current = nonce.current();
@@ -308,26 +347,75 @@ contract Settlement is EIP712 {
      * @return signer address
      */
     function _getSigner(BidData calldata _bidData) internal view returns (address) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                _OPYN_RFQ_TYPEHASH,
-                _bidData.offerId,
-                _bidData.bidId,
-                _bidData.signerAddress,
-                _bidData.bidderAddress,
-                _bidData.bidToken,
-                _bidData.offerToken,
-                _bidData.bidAmount,
-                _bidData.sellAmount,
-                _nonces[_bidData.signerAddress].current()
-            )
-        );
-        bytes32 hash = _hashTypedDataV4(structHash);
-        return ECDSA.recover(
-            hash,
+        return ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR,
+                    keccak256(
+                        abi.encode(
+                            _OPYN_RFQ_TYPEHASH,
+                            _bidData.offerId,
+                            _bidData.bidId,
+                            _bidData.signerAddress,
+                            _bidData.bidderAddress,
+                            _bidData.bidToken,
+                            _bidData.offerToken,
+                            _bidData.bidAmount,
+                            _bidData.sellAmount,
+                            _nonces[_bidData.signerAddress].current()
+                        )
+                    )
+                )
+            ),
             _bidData.v,
             _bidData.r,
             _bidData.s
+        );
+    }
+
+    function getTestSigner(TestData calldata _test) external view returns (address) {
+        return ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR,
+                    keccak256(
+                        abi.encode(
+                            _TEST_TYPEHASH,
+                            _test.offerId,
+                            _test.bidId
+                        )
+                    )
+                )
+            ),
+            _test.v,
+            _test.r,
+            _test.s
+        );
+    }
+
+    function getHashedMessage(TestData calldata _test) external view returns (bytes32) {
+        return keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR,
+                    keccak256(
+                        abi.encode(
+                            _TEST_TYPEHASH,
+                            _test.offerId,
+                            _test.bidId
+                        )
+                    )
+                )
+            );
+    }
+
+    function getEncode(TestData calldata _test) external view returns (bytes memory) {
+        return abi.encode(
+            _TEST_TYPEHASH,
+            _test.offerId,
+            _test.bidId
         );
     }
 }
