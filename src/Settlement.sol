@@ -381,7 +381,7 @@ contract Settlement {
                     "\x19\x01",
                     DOMAIN_SEPARATOR,
                     keccak256(
-                        abi.encode(
+                        abi.encodePacked(
                             _TEST_TYPEHASH,
                             _test.offerId,
                             _test.bidId
