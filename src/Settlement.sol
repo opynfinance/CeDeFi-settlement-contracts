@@ -31,13 +31,7 @@ contract Settlement {
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
             abi.encodePacked(
-                "RFQ(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount,uint256 nonce)"
-            )
-        );
-    bytes32 private constant _TEST_TYPEHASH =
-        keccak256(
-            abi.encodePacked(
-                "TEST(uint256 offerId, uint256 bidId)"
+                "RFQ(uint256 offerId,uint256 bidId,address signerAddress,address bidderAddress,address bidToken,address offerToken,uint256 bidAmount,uint256 sellAmount,uint256 nonce)"
             )
         );
     bytes32 public immutable DOMAIN_SEPARATOR;
@@ -335,6 +329,11 @@ contract Settlement {
         );
     }
 
+    /**
+     * @notice increment nonce of an address
+     * @param _owner address to increment nonce of
+     * @return current address nonce before incrementing
+     */
     function _useNonce(address _owner) internal returns (uint256 current) {
         Counters.Counter storage nonce = _nonces[_owner];
         current = nonce.current();
@@ -373,64 +372,4 @@ contract Settlement {
             _bidData.s
         );
     }
-
-    function getTestSigner(TestData calldata _test) external view returns (address) {
-        return ecrecover(
-            keccak256(
-                abi.encodePacked(
-                    "\x19\x01",
-                    DOMAIN_SEPARATOR,
-                    keccak256(
-                        abi.encodePacked(
-                            _TEST_TYPEHASH,
-                            _test.offerId,
-                            _test.bidId
-                        )
-                    )
-                )
-            ),
-            _test.v,
-            _test.r,
-            _test.s
-        );
-    }
-
-    function getHashedMessage(TestData calldata _test) external view returns (bytes32) {
-        return keccak256(
-                abi.encodePacked(
-                    "\x19\x01",
-                    DOMAIN_SEPARATOR,
-                    keccak256(
-                        abi.encode(
-                            _TEST_TYPEHASH,
-                            _test.offerId,
-                            _test.bidId
-                        )
-                    )
-                )
-            );
-    }
-
-    function getEncode(TestData calldata _test) external view returns (bytes memory) {
-        return abi.encode(
-            _TEST_TYPEHASH,
-            _test.offerId,
-            _test.bidId
-        );
-    }
-
-    function getEncodePacked(TestData calldata _test) external view returns (bytes memory) {
-        return abi.encodePacked(
-            "\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(
-                abi.encode(
-                    _TEST_TYPEHASH,
-                    _test.offerId,
-                    _test.bidId
-                )
-            )
-        );
-    }
-
 }
