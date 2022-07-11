@@ -4,37 +4,23 @@ pragma solidity 0.8.13;
 // interface
 import {IERC20Metadata as IERC20} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
 // contract
-// import {EIP712} from "@openzeppelin/utils/cryptography/draft-EIP712.sol";
+import {EIP712} from "@openzeppelin/utils/cryptography/draft-EIP712.sol";
 // lib
 import {Counters} from "@openzeppelin/utils/Counters.sol";
 import {ECDSA} from "@openzeppelin/utils/cryptography/ECDSA.sol";
 
 /// @title Settlement
 /// @author Haythem Sellami
-contract Settlement {
+contract Settlement is EIP712 {
     using Counters for Counters.Counter;
 
     uint256 internal constant MAX_ERROR_COUNT = 7;
-    bytes32 public constant DOMAIN_NAME = keccak256("OPYN BRIDGE");
-    bytes32 public constant DOMAIN_VERSION = keccak256("1");
-    bytes32 public constant DOMAIN_TYPEHASH =
-        keccak256(
-            abi.encodePacked(
-                "EIP712Domain(",
-                "string name,",
-                "string version,",
-                "uint256 chainId,",
-                "address verifyingContract",
-                ")"
-            )
-        );
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
             abi.encodePacked(
                 "RFQ(uint256 offerId,uint256 bidId,address signerAddress,address bidderAddress,address bidToken,address offerToken,uint256 bidAmount,uint256 sellAmount,uint256 nonce)"
             )
         );
-    bytes32 public immutable DOMAIN_SEPARATOR;
 
     uint256 public offersCounter;
 
@@ -86,16 +72,7 @@ contract Settlement {
     event DelegateToSigner(address indexed bidder, address indexed newSigner);
     event SettleOffer(uint256 indexed offerId, uint256 bidId, address offerToken, address bidToken, address indexed seller, address indexed bidder, uint256 bidAmount, uint256 sellAmount);
 
-    constructor() {
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                DOMAIN_NAME,
-                DOMAIN_VERSION,
-                block.chainid,
-                address(this)
-            )
-        );
+    constructor() EIP712("OPYN BRIDGE", "1") {
     }
 
     /**
@@ -178,27 +155,23 @@ contract Settlement {
             );
         }
 
-        address bidSigner = ecrecover(
-            keccak256(
-                abi.encodePacked(
-                    "\x19\x01",
-                    DOMAIN_SEPARATOR,
-                    keccak256(
-                        abi.encode(
-                            _OPYN_RFQ_TYPEHASH,
-                            _bidData.offerId,
-                            _bidData.bidId,
-                            _bidData.signerAddress,
-                            _bidData.bidderAddress,
-                            _bidData.bidToken,
-                            _bidData.offerToken,
-                            _bidData.bidAmount,
-                            _bidData.sellAmount,
-                            _useNonce(_bidData.signerAddress)
-                        )
-                    )
-                )
-            ),
+        bytes32 structHash = keccak256(
+            abi.encode(
+                _OPYN_RFQ_TYPEHASH,
+                _bidData.offerId,
+                _bidData.bidId,
+                _bidData.signerAddress,
+                _bidData.bidderAddress,
+                _bidData.bidToken,
+                _bidData.offerToken,
+                _bidData.bidAmount,
+                _bidData.sellAmount,
+                _useNonce(_bidData.signerAddress)
+            )
+        );
+        bytes32 hash = _hashTypedDataV4(structHash);
+        address bidSigner = ECDSA.recover(
+            hash,
             _bidData.v,
             _bidData.r,
             _bidData.s
@@ -329,6 +302,12 @@ contract Settlement {
         );
     }
 
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
+
     /**
      * @notice increment nonce of an address
      * @param _owner address to increment nonce of
@@ -346,27 +325,23 @@ contract Settlement {
      * @return signer address
      */
     function _getSigner(BidData calldata _bidData) internal view returns (address) {
-        return ecrecover(
-            keccak256(
-                abi.encodePacked(
-                    "\x19\x01",
-                    DOMAIN_SEPARATOR,
-                    keccak256(
-                        abi.encode(
-                            _OPYN_RFQ_TYPEHASH,
-                            _bidData.offerId,
-                            _bidData.bidId,
-                            _bidData.signerAddress,
-                            _bidData.bidderAddress,
-                            _bidData.bidToken,
-                            _bidData.offerToken,
-                            _bidData.bidAmount,
-                            _bidData.sellAmount,
-                            _nonces[_bidData.signerAddress].current()
-                        )
-                    )
-                )
-            ),
+        bytes32 structHash = keccak256(
+            abi.encode(
+                _OPYN_RFQ_TYPEHASH,
+                _bidData.offerId,
+                _bidData.bidId,
+                _bidData.signerAddress,
+                _bidData.bidderAddress,
+                _bidData.bidToken,
+                _bidData.offerToken,
+                _bidData.bidAmount,
+                _bidData.sellAmount,
+                _nonces[_bidData.signerAddress].current()
+            )
+        );
+        bytes32 hash = _hashTypedDataV4(structHash);
+        return ECDSA.recover(
+            hash,
             _bidData.v,
             _bidData.r,
             _bidData.s
