@@ -40,14 +40,6 @@ contract Settlement is EIP712 {
         bytes32 s; // s
     }
 
-    struct TestData {
-        uint256 offerId;
-        uint256 bidId;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     struct OfferData {
         address seller; // seller address
         address offerToken; // offer token to sell

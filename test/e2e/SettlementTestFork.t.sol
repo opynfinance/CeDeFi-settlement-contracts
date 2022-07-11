@@ -31,7 +31,7 @@ contract SettlementTestFork is Test {
 
         usdc = MockERC20(0x27415c30d8c87437BeCbd4f98474f26E712047f4);
         squeeth = MockERC20(0xa4222f78d23593e82Aa74742d25D06720DCa4ab7);
-        settlement = Settlement(0x178bb2129310e590C69F8ef94a4475569D892587);
+        settlement = Settlement(0xD19440e4D2Fe504E8C463d4844541734ec3C6b9e);
         sigUtils = new SigUtils(settlement.DOMAIN_SEPARATOR());
 
         sellerPrivateKey = vm.envUint("E2E_SELLER_PK");
