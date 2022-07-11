@@ -31,7 +31,7 @@ contract SettlementTestFork is Test {
 
         usdc = MockERC20(0x27415c30d8c87437BeCbd4f98474f26E712047f4);
         squeeth = MockERC20(0xa4222f78d23593e82Aa74742d25D06720DCa4ab7);
-        settlement = Settlement(0x635f8703b4E00357C5a323424423e001c07b8f65);
+        settlement = Settlement(0xD19440e4D2Fe504E8C463d4844541734ec3C6b9e);
         sigUtils = new SigUtils(settlement.DOMAIN_SEPARATOR());
 
         sellerPrivateKey = vm.envUint("E2E_SELLER_PK");
@@ -73,8 +73,6 @@ contract SettlementTestFork is Test {
         bytes32 r;
         bytes32 s;
 
-        console.logUint(settlement.nonces(bidder));
-
         {
             // bidder signing bid
             SigUtils.OpynRfq memory bigSign = SigUtils.OpynRfq({
@@ -105,10 +103,6 @@ contract SettlementTestFork is Test {
             r: r,
             s: s
         });
-
-        console.logUint(v);
-        console.logBytes32(r);
-        console.logBytes32(s);
 
         address signerAddr = settlement.getBidSigner(bidData);
         assertEq(signerAddr, bidder);

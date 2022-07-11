@@ -10,7 +10,7 @@ contract SigUtils {
 
     bytes32 private constant OPYN_RFQ_TYPEHASH =
         keccak256(
-            "RFQ(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount,uint256 nonce)"
+            "RFQ(uint256 offerId,uint256 bidId,address signerAddress,address bidderAddress,address bidToken,address offerToken,uint256 bidAmount,uint256 sellAmount,uint256 nonce)"
         );
 
     struct OpynRfq {

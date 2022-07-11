@@ -17,7 +17,7 @@ contract Settlement is EIP712 {
     uint256 internal constant MAX_ERROR_COUNT = 7;
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
-            "RFQ(uint256 offerId, uint256 bidId, address signerAddress, address bidderAddress, address bidToken, address offerToken, uint256 bidAmount, uint256 sellAmount,uint256 nonce)"
+            "RFQ(uint256 offerId,uint256 bidId,address signerAddress,address bidderAddress,address bidToken,address offerToken,uint256 bidAmount,uint256 sellAmount,uint256 nonce)"
         );
 
     uint256 public offersCounter;
@@ -62,7 +62,8 @@ contract Settlement is EIP712 {
     event DelegateToSigner(address indexed bidder, address indexed newSigner);
     event SettleOffer(uint256 indexed offerId, uint256 bidId, address offerToken, address bidToken, address indexed seller, address indexed bidder, uint256 bidAmount, uint256 sellAmount);
 
-    constructor(string memory _version) EIP712("OPYN BRIDGE", _version) {}
+    constructor() EIP712("OPYN BRIDGE", "1") {
+    }
 
     /**
      * @notice create new onchain offer
@@ -143,8 +144,7 @@ contract Settlement is EIP712 {
                 "Invalid signer for bidder address"
             );
         }
-        
-        // verify big signature
+
         bytes32 structHash = keccak256(
             abi.encode(
                 _OPYN_RFQ_TYPEHASH,
@@ -160,12 +160,13 @@ contract Settlement is EIP712 {
             )
         );
         bytes32 hash = _hashTypedDataV4(structHash);
-        address bidSigner =  ECDSA.recover(
+        address bidSigner = ECDSA.recover(
             hash,
             _bidData.v,
             _bidData.r,
             _bidData.s
         );
+
         require(bidSigner == _bidData.signerAddress, "Invalid bid signature");
 
         IERC20(_bidData.offerToken).transferFrom(
@@ -296,6 +297,12 @@ contract Settlement is EIP712 {
         return _domainSeparatorV4();
     }
 
+
+    /**
+     * @notice increment nonce of an address
+     * @param _owner address to increment nonce of
+     * @return current address nonce before incrementing
+     */
     function _useNonce(address _owner) internal returns (uint256 current) {
         Counters.Counter storage nonce = _nonces[_owner];
         current = nonce.current();
