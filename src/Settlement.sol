@@ -17,9 +17,7 @@ contract Settlement is EIP712 {
     uint256 internal constant MAX_ERROR_COUNT = 7;
     bytes32 private constant _OPYN_RFQ_TYPEHASH =
         keccak256(
-            abi.encodePacked(
-                "RFQ(uint256 offerId,uint256 bidId,address signerAddress,address bidderAddress,address bidToken,address offerToken,uint256 bidAmount,uint256 sellAmount,uint256 nonce)"
-            )
+            "RFQ(uint256 offerId,uint256 bidId,address signerAddress,address bidderAddress,address bidToken,address offerToken,uint256 bidAmount,uint256 sellAmount,uint256 nonce)"
         );
 
     uint256 public offersCounter;
