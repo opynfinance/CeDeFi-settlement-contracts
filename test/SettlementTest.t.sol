@@ -53,13 +53,14 @@ contract SettlementTest is Test {
 
     function testCreateOffer() public {
         uint256 offerId = _createOffer(seller, address(squeeth), address(usdc), uint128(1000e6), uint128(1), 100);
-        (address sellerAddr, address offerToken, address bidToken, uint128 minPrice, uint128 minBidSize) = settlement.getOfferDetails(offerId);
+        (address sellerAddr, address offerToken, address bidToken, uint128 minPrice, uint128 minBidSize, uint256 totalSize) = settlement.getOfferDetails(offerId);
 
         assertEq(sellerAddr, seller);
         assertEq(offerToken, address(squeeth));
         assertEq(bidToken, address(usdc));
         assertEq(minPrice, uint128(1000e6));
         assertEq(minBidSize, uint128(1));
+        assertEq(totalSize, uint256(100));
     }
 
     function testSettleOffer() public {

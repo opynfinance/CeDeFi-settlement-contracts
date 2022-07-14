@@ -278,7 +278,8 @@ contract Settlement is EIP712 {
             address,
             address,
             uint128,
-            uint128
+            uint128,
+            uint256
         )
     {
         OfferData memory offer = _offers[_offerId];
@@ -288,7 +289,8 @@ contract Settlement is EIP712 {
             offer.offerToken,
             offer.bidToken,
             offer.minPrice,
-            offer.minBidSize
+            offer.minBidSize,
+            offer.totalSize
         );
     }
 
